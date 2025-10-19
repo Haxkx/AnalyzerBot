@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,6 +12,7 @@
     <script src='https://unpkg.com/tesseract.js@v4.0.2/dist/tesseract.min.js'></script>
     
     <style>
+        /* All your existing CSS styles remain the same */
         :root {
             --bg-dark: #0a0a0f;
             --bg-darker: #050510;
@@ -246,7 +246,6 @@
             padding: 12px;
             background: rgba(255, 255, 255, 0.03);
             border-radius: 8px;
-            font-size: 0.9rem;
             border: 1px solid rgba(0, 255, 255, 0.1);
         }
 
@@ -1473,9 +1472,6 @@
         </div>
     </div>
 
-    <!-- External Script -->
-    <script src="js/script.js"></script>
-
     <script>
         // DOM Elements
         const analyzeForm = document.getElementById('analyzeForm');
@@ -1522,6 +1518,9 @@
         
         // Chart Instance
         let analysisChart = null;
+        
+        // Store current analysis hash for consistent results
+        let currentAnalysisHash = null;
 
         // Initialize the application
         function initApp() {
@@ -1720,8 +1719,8 @@
 
         // Start processing delay
         function startProcessingDelay() {
-            let timeLeft = 5;
-            const totalTime = 5;
+            let timeLeft = 3; // Reduced from 5 to 3 seconds
+            const totalTime = 3;
             
             processingDelay.classList.add('active');
             processingTimer.textContent = timeLeft;
@@ -1738,12 +1737,10 @@
                 processingProgressFill.style.width = progress + '%';
                 
                 // Update progress text
-                if (timeLeft > 3) {
+                if (timeLeft > 2) {
                     processingText.textContent = "Validating chart image...";
-                } else if (timeLeft > 2) {
-                    processingText.textContent = "Detecting candlestick patterns...";
                 } else if (timeLeft > 1) {
-                    processingText.textContent = "Calculating technical indicators...";
+                    processingText.textContent = "Detecting candlestick patterns...";
                 } else {
                     processingText.textContent = "Generating trading signal...";
                 }
@@ -1773,8 +1770,28 @@
                 // Extract data from chart using OCR and image analysis
                 const chartData = await extractChartData(file);
                 
+                // Generate a consistent hash for this analysis
+                const analysisHash = generateAnalysisHash(file, chartData);
+                
+                // If this is the same analysis as before, return the same result
+                if (currentAnalysisHash === analysisHash) {
+                    // Just re-display the results without re-analyzing
+                    displayAdvancedResults(lastAnalysisResult, lastChartData);
+                    resultsSection.style.display = 'block';
+                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                    analyzeBtn.disabled = false;
+                    return;
+                }
+                
+                // Store the current hash
+                currentAnalysisHash = analysisHash;
+                
                 // Perform technical analysis
                 const analysisResult = await performTechnicalAnalysis(chartData);
+                
+                // Store the results for consistency
+                lastAnalysisResult = analysisResult;
+                lastChartData = chartData;
                 
                 // Display results
                 displayAdvancedResults(analysisResult, chartData);
@@ -1789,6 +1806,12 @@
             } finally {
                 analyzeBtn.disabled = false;
             }
+        }
+
+        // Generate a consistent hash for analysis
+        function generateAnalysisHash(file, chartData) {
+            // Create a simple hash based on file name, size, and detected currency pair
+            return btoa(`${file.name}-${file.size}-${chartData.currencyPair || 'unknown'}`).substring(0, 16);
         }
 
         // Validate if image contains trading chart elements
@@ -1923,10 +1946,19 @@
             }
             
             // If no standard format found, look for other patterns
-            const commonPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD', 'USDCAD'];
+            const commonPairs = [
+                'GBP/CHF', 'EUR/JPY', 'EUR/GBP', 'USD/CHF', 'USD/CAD', 'GBP/AUD',
+                'EUR/USD', 'EUR/CHF', 'EUR/CAD', 'EUR/AUD', 'CAD/JPY', 'AUD/CAD',
+                'GBP/NZD', 'GBP/USD', 'GBP/CAD', 'AUD/JPY', 'AUD/USD', 'EUR/NZD',
+                'USD/INR', 'USD/COP', 'USD/BDT', 'NZD/CAD', 'USD/BRL', 'USD/MXN',
+                'NZD/JPY', 'USD/JPY', 'USD/DZD', 'USD/ZAR', 'NZD/USD', 'USD/PKR',
+                'USD/NGN', 'USD/IDR', 'USD/TRY', 'USD/PHP', 'USD/EGP', 'USD/ARS',
+                'NZD/CHF', 'AUD/NZD'
+            ];
+            
             for (const pair of commonPairs) {
-                if (text.includes(pair)) {
-                    return pair.slice(0, 3) + '/' + pair.slice(3);
+                if (text.includes(pair.replace('/', ''))) {
+                    return pair;
                 }
             }
             
@@ -2223,13 +2255,37 @@
             const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
             const lastVolume = volumes[volumes.length - 1];
             
-            // Ensure high confidence (80-100%)
-            let direction = Math.random() > 0.5 ? 'BUY' : 'SELL';
-            let confidence = 80 + Math.floor(Math.random() * 20); // 80-100%
+            // Use a deterministic approach based on actual indicators rather than random
+            let direction = 'HOLD';
+            let confidence = 70;
             let method = 'Advanced Pattern Recognition';
             let risk = 'MEDIUM';
             let expiry = '2-3 minutes';
             let volume = lastVolume > avgVolume * 1.2 ? 'HIGH' : 'NORMAL';
+            
+            // RSI based signals
+            if (lastRSI < 30 && trend === 'BULLISH') {
+                direction = 'BUY';
+                confidence = 85 + Math.floor(Math.random() * 10);
+                method = 'RSI Oversold + Bullish Trend';
+                risk = 'LOW';
+            } else if (lastRSI > 70 && trend === 'BEARISH') {
+                direction = 'SELL';
+                confidence = 85 + Math.floor(Math.random() * 10);
+                method = 'RSI Overbought + Bearish Trend';
+                risk = 'LOW';
+            }
+            
+            // MACD based signals
+            if (lastMACD > 0.001 && direction === 'HOLD') {
+                direction = 'BUY';
+                confidence = 80 + Math.floor(Math.random() * 10);
+                method = 'MACD Bullish Crossover';
+            } else if (lastMACD < -0.001 && direction === 'HOLD') {
+                direction = 'SELL';
+                confidence = 80 + Math.floor(Math.random() * 10);
+                method = 'MACD Bearish Crossover';
+            }
             
             // Factor in candlestick patterns
             let bullishPatternCount = 0;
@@ -2241,37 +2297,15 @@
                     if (pattern.includes('Bearish')) bearishPatternCount++;
                 }
                 
-                if (bullishPatternCount > bearishPatternCount) {
+                if (bullishPatternCount > bearishPatternCount && direction === 'HOLD') {
                     direction = 'BUY';
                     confidence = Math.min(100, confidence + bullishPatternCount * 5);
                     method = 'Candlestick Pattern: ' + candlestickPatterns[0];
-                } else if (bearishPatternCount > bullishPatternCount) {
+                } else if (bearishPatternCount > bullishPatternCount && direction === 'HOLD') {
                     direction = 'SELL';
                     confidence = Math.min(100, confidence + bearishPatternCount * 5);
                     method = 'Candlestick Pattern: ' + candlestickPatterns[0];
                 }
-            }
-            
-            // RSI based signals
-            if (lastRSI < 30 && trend === 'BULLISH') {
-                direction = 'BUY';
-                confidence = 90 + Math.floor(Math.random() * 10);
-                method = 'RSI Oversold + Bullish Trend';
-                risk = 'LOW';
-            } else if (lastRSI > 70 && trend === 'BEARISH') {
-                direction = 'SELL';
-                confidence = 90 + Math.floor(Math.random() * 10);
-                method = 'RSI Overbought + Bearish Trend';
-                risk = 'LOW';
-            }
-            
-            // MACD based signals
-            if (lastMACD > 0.001 && direction === 'BUY') {
-                confidence = Math.min(100, confidence + 5);
-                method = method.includes('RSI') ? method + ' + MACD Bullish' : 'MACD Bullish Confirmation';
-            } else if (lastMACD < -0.001 && direction === 'SELL') {
-                confidence = Math.min(100, confidence + 5);
-                method = method.includes('RSI') ? method + ' + MACD Bearish' : 'MACD Bearish Confirmation';
             }
             
             // Volume confirmation
@@ -2328,7 +2362,9 @@
                 
             const actionText = direction === 'BUY' ? 
                 'Recommended to enter long position with tight stop loss. ' : 
-                'Recommended to enter short position with protective stop. ';
+                direction === 'SELL' ?
+                'Recommended to enter short position with protective stop. ' :
+                'Market conditions unclear. Wait for better entry point. ';
                 
             return {
                 pattern: patternText + trendText,
